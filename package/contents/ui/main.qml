@@ -23,12 +23,85 @@ import QtQuick.Layouts 1.1
 import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.components 2.0 as PlasmaComponents
+import Qt.labs.settings 1.0
 
 Item {
     width: 200; height: 200
-    Plasmoid.fullRepresentation: ListView {
+    
+    //PlasmaCore.IconSize.Horizontal: 200
+    //PlasmaCore.IconSize.Horizontal: 200
+    function setVisibleItem() {
+        if (!settings.token.length) 
+            Plasmoid.fullRepresentation = column
+        else
+            Plasmoid.fullRepresentation = listview
+    }
+        
+    Component.onCompleted: {
+        //jsonModel.load()
+        setVisibleItem()
+    }
+    
+    Settings {
+        id: settings
+        property string token
+        property url phabricatorUrl
+    }
+    
+     
+    ColumnLayout {
+        id: column
+        spacing: 10
+        width: parent.width
+        height: parent.height
+        
+        Label{
+            text: "Enter the token:"
+        }
+        TextField {
+            id: tokenfield
+            width: parent.width; height: 25
+        }
+        Label{
+            text: "Enter the Phabricator URL:"
+        }
+        TextField {
+            id: phabricatorUrlfield
+            width: parent.width; height: 25
+        }
+        Button {
+            id: button
+            text: "Submit"
+            anchors{
+                right: parent.right
+                rightMargin: 5
+            }
+            onClicked: {
+                if (tokenfield.text && phabricatorUrlfield.text){
+                    settings.token = tokenfield.text
+                    settings.phabricatorUrl = phabricatorUrlfield.text
+                    jsonModel.load()
+                }
+            }
+        }
+    }
+    
+    Connections {
+        target: jsonModel
+        onJsonChanged: {
+            console.log(jsonModel.httpStatus)
+            if (jsonModel.httpStatus == 200){
+                setVisibleItem()
+                column.visible = false
+            }
+        }
+    }
+    
+    ListView {
+        id: listview
         anchors.fill: parent
         clip: true
+        visible: !column.visible
         model: jsonModel.json.result.data
         delegate: ItemDelegate {
             text: modelData.fields.name
@@ -39,7 +112,5 @@ Item {
         source: "https://phabricator.ifba.edu.br/api/maniphest.search"
         requestMethod: "POST"
     }
-    Component.onCompleted: {
-        jsonModel.load()
-    }
+
 }
