@@ -18,19 +18,28 @@
  ***************************************************************************/
 
 import QtQuick 2.1
+import QtQuick.Controls 2.0
 import QtQuick.Layouts 1.1
 import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.components 2.0 as PlasmaComponents
 
 Item {
-    Plasmoid.fullRepresentation: ColumnLayout {
+    width: 200; height: 200
+    Plasmoid.fullRepresentation: ListView {
         anchors.fill: parent
-        PlasmaCore.IconItem {
-            source: "kde"
+        clip: true
+        model: jsonModel.json.result.data
+        delegate: ItemDelegate {
+            text: modelData.fields.name
         }
-        PlasmaComponents.Label {
-            text: "This is Plasma!"
-        }
+    }
+    JSONListModel {
+        id: jsonModel
+        source: "https://phabricator.ifba.edu.br/api/maniphest.search"
+        requestMethod: "POST"
+    }
+    Component.onCompleted: {
+        jsonModel.load()
     }
 }
