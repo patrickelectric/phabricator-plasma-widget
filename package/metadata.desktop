@@ -1,0 +1,21 @@
+[Desktop Entry]
+Name=Phabricator Widget
+Comment=A Plasma widget for visualizing Phabricator data
+
+Icon=applications-system
+Type=Service
+ServiceTypes=Plasma/Applet
+
+X-KDE-PluginInfo-Author=Enoque Joseneas
+X-KDE-PluginInfo-Email=enoquejoseneas@gmail.com
+X-KDE-PluginInfo-Name=phabricator
+X-KDE-PluginInfo-Version=1.0
+X-KDE-PluginInfo-Website=http://plasma.kde.org/
+X-KDE-PluginInfo-Category=Development Tools
+X-KDE-PluginInfo-Depends=
+X-KDE-PluginInfo-License=GPL
+X-KDE-PluginInfo-EnabledByDefault=true
+X-KDE-PluginInfo-Name=org.kde.phabricator
+
+X-Plasma-API=declarativeappletscript
+X-Plasma-MainScript=ui/main.qml
