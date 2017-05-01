@@ -44,7 +44,6 @@ Item {
         rootItem.errorString = ""
         rootItem.state = "loading"
         json = undefined
-        var params = 'api.token=api-m34kqm7xmdfmiygw3rzbfoyr6cum&constraints[assigned][0]=PHID-USER-47myrwgl5rbntutgxn2o'
-        xhr.send(params); // requestParams ignored if requestMethod equals GET
+        xhr.send(requestParams); // requestParams ignored if requestMethod equals GET
     }
 }
