@@ -41,6 +41,16 @@ Item {
         }
     }
 
+    BusyIndicator {
+        visible: jsonModel.state == "loading"
+        anchors.centerIn: parent
+    }
+    
+    Timer {
+        interval: 500; running: true; repeat: true
+        onTriggered: maniphestPage.maniphestPageRequest()
+    }
+    
     Settings {
         id: settings
         property string token
@@ -104,7 +114,8 @@ Item {
                 Connections {
                     target: jsonModel
                     onJsonChanged: {
-                        if (jsonModel.httpStatus == 200 && maniphestView.count == 0)
+                        console.log(JSON.stringify(jsonModel.json))
+                        if (jsonModel.httpStatus == 200 /*&& maniphestView.count == 0*/)
                             maniphestPage.maniphestData = jsonModel.json.result.data;
                     }
                 }
@@ -129,7 +140,14 @@ Item {
                         width: maniphestView.width; height: 45
                         PlasmaComponents.Label {
                             id: textName
+                            width: parent.width*0.90
+                            elide: Text.ElideRight
                             text: modelData.fields.name
+                            anchors {
+                                left: parent.left
+                                leftMargin: 10
+                                verticalCenter: parent.verticalCenter
+                            }
                         }
 
                         MouseArea {
