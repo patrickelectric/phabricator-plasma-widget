@@ -18,7 +18,7 @@
  ***************************************************************************/
 
 import QtQuick 2.1
-import QtQuick.Controls 2.1
+import QtQuick.Controls 2.0
 import QtQuick.Layouts 1.1
 import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.plasmoid 2.0
@@ -146,6 +146,8 @@ Item {
                             if (tokenfield.text && phabricatorUrlfield.text) {
                                 settings.token = tokenfield.text;
                                 settings.phabricatorUrl = phabricatorUrlfield.text;
+                                jsonModel.requestParams = "api.token="+settings.token+"&constraints[assigned][0]=PHID-USER-47myrwgl5rbntutgxn2o"
+                                jsonModel.source += "/api/maniphest.search";
                                 jsonModel.load();
                             }
                         }
