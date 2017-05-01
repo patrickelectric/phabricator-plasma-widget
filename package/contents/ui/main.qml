@@ -18,28 +18,140 @@
  ***************************************************************************/
 
 import QtQuick 2.1
-import QtQuick.Controls 2.0
+import QtQuick.Controls 2.1
 import QtQuick.Layouts 1.1
 import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.components 2.0 as PlasmaComponents
+import Qt.labs.settings 1.0
 
 Item {
-    width: 200; height: 200
-    Plasmoid.fullRepresentation: ListView {
-        anchors.fill: parent
-        clip: true
-        model: jsonModel.json.result.data
-        delegate: ItemDelegate {
-            text: modelData.fields.name
-        }
+    width: 400; height: 350
+    implicitWidth: width; implicitHeight: height
+    Layout.minimumWidth: width; Layout.minimumHeight: height
+
+    function setVisiblePage() { }
+
+    Settings {
+        id: settings
+        property string token
+        property string phabricatorUrl
     }
+
     JSONListModel {
         id: jsonModel
-        source: "https://phabricator.ifba.edu.br/api/maniphest.search"
+        source: settings.phabricatorUrl
         requestMethod: "POST"
+        onHttpStatusChanged: if (jsonModel.httpStatus == 200) jsonModel.source = settings.phabricatorUrl;
     }
+
     Component.onCompleted: {
-        jsonModel.load()
+        jsonModel.load();
+        Plasmoid.fullRepresentation = column;
+        setVisiblePage();
+    }
+
+    Column {
+        id: column
+        spacing: 0
+        width: parent.width
+        anchors.fill: parent
+        
+        PlasmaComponents.TabBar {
+            id: tabBar
+            z: parent.z + 100
+            clip: true
+            width: parent.width
+
+            PlasmaComponents.TabButton {
+                tab: maniphestPage
+                text: qsTr("Maniphest")
+                clip: true
+            }
+
+            PlasmaComponents.TabButton {
+                tab: settingsPage
+                text: qsTr("Settings")
+                clip: true
+            }
+        }
+
+         PlasmaComponents.TabGroup {
+            id: tabGroup
+            clip: true
+            width: parent.width; height: parent.height - tabBar.height - anchors.topMargin
+
+            PlasmaComponents.Page {
+                id: maniphestPage
+                anchors.fill: parent
+
+                ListView {
+                    anchors.fill: parent
+                    implicitWidth: 300
+                    implicitHeight: implicitWidth / 2
+                    Layout.minimumWidth: 300
+                    Layout.minimumHeight: 300
+                    clip: true
+                    model: jsonModel.json.result.data
+                    delegate: ItemDelegate {
+                        text: modelData.fields.name
+                    }
+                }
+            }
+
+            PlasmaComponents.Page {
+                id: settingsPage
+                anchors.fill: parent
+
+                ColumnLayout {
+                    spacing: 4
+                    width: parent.width; height: parent.height
+                    anchors.horizontalCenter: parent.horizontalCenter
+
+                    Connections {
+                        target: jsonModel
+                        onJsonChanged: {
+                            if (jsonModel.httpStatus == 200)
+                                setVisibleItem();
+                        }
+                    }
+
+                    PlasmaComponents.Label {
+                        text: qsTr("Enter the token:")
+                    }
+
+                    PlasmaComponents.TextField {
+                        id: tokenfield
+                        width: parent.width; height: 20
+                        text: settings.token
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+
+                    PlasmaComponents.Label {
+                        text: qsTr("Enter the Phabricator URL:")
+                    }
+
+                    PlasmaComponents.TextField {
+                        id: phabricatorUrlfield
+                        width: parent.width; height: 20
+                        text: settings.phabricatorUrl
+                        anchors.horizontalCenter: parent.horizontalCenter
+                    }
+
+                    PlasmaComponents.Button {
+                        id: button
+                        text: qsTr("Submit")
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        onClicked: {
+                            if (tokenfield.text && phabricatorUrlfield.text) {
+                                settings.token = tokenfield.text;
+                                settings.phabricatorUrl = phabricatorUrlfield.text;
+                                jsonModel.load();
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
