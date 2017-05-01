@@ -46,7 +46,7 @@ Item {
     Component.onCompleted: {
         Plasmoid.fullRepresentation = column;
         console.log("Settings: "+settings.token);
-        //if (settings.token)
+        if (settings.token)
             maniphestPage.maniphestPageRequest();
     }
 
