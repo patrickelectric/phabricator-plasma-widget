@@ -30,8 +30,6 @@ Item {
     implicitWidth: width; implicitHeight: height
     Layout.minimumWidth: width; Layout.minimumHeight: height
 
-    function setVisiblePage() { }
-
     Settings {
         id: settings
         property string token
@@ -46,9 +44,10 @@ Item {
     }
 
     Component.onCompleted: {
-        jsonModel.load();
         Plasmoid.fullRepresentation = column;
-        setVisiblePage();
+        console.log("Settings: "+settings.token);
+        //if (settings.token)
+            maniphestPage.maniphestPageRequest();
     }
 
     Column {
@@ -68,7 +67,14 @@ Item {
                 text: qsTr("Maniphest")
                 clip: true
             }
-
+            
+            PlasmaComponents.TabButton {
+                id: previewPageButton
+                tab: previewPage
+                text: qsTr("Preview")
+                clip: true
+            }
+            
             PlasmaComponents.TabButton {
                 tab: settingsPage
                 text: qsTr("Settings")
@@ -84,7 +90,13 @@ Item {
             PlasmaComponents.Page {
                 id: maniphestPage
                 anchors.fill: parent
-
+                
+                function maniphestPageRequest() {
+                    jsonModel.requestParams = "api.token="+settings.token+"&constraints[assigned][0]=PHID-USER-47myrwgl5rbntutgxn2o"
+                    jsonModel.source += "/api/maniphest.search";
+                    jsonModel.load();                    
+                }
+                
                 ListView {
                     anchors.fill: parent
                     implicitWidth: 300
@@ -95,6 +107,35 @@ Item {
                     model: jsonModel.json.result.data
                     delegate: ItemDelegate {
                         text: modelData.fields.name
+                        MouseArea {
+                            hoverEnabled: true
+                            anchors.fill: parent
+                            onEntered: cursorShape = Qt.PointingHandCursor
+                            onClicked: { 
+                                previewPage.requestId = modelData.id
+                                previewPageButton.clicked()
+                            }
+                        }
+                    }
+                }
+            }
+
+            PlasmaComponents.Page {
+                id: previewPage
+                anchors.fill: parent
+                property int requestId: 0
+                onRequestIdChanged: {
+                    jsonModel.requestParams = "api.token="+settings.token+"&constraints[ids][0]="+requestId
+                    jsonModel.source += "/api/maniphest.search";
+                    jsonModel.load();                   
+                }
+                Column {
+                    spacing: 10
+                    Text {
+                        text: jsonModel.json.result.data[0].fields.name
+                    }
+                    Text {
+                        text: jsonModel.json.result.data[0].fields.description.raw
                     }
                 }
             }
@@ -112,7 +153,7 @@ Item {
                         target: jsonModel
                         onJsonChanged: {
                             if (jsonModel.httpStatus == 200)
-                                setVisibleItem();
+                                maniphestPage.maniphestPageRequest()
                         }
                     }
 
@@ -146,9 +187,7 @@ Item {
                             if (tokenfield.text && phabricatorUrlfield.text) {
                                 settings.token = tokenfield.text;
                                 settings.phabricatorUrl = phabricatorUrlfield.text;
-                                jsonModel.requestParams = "api.token="+settings.token+"&constraints[assigned][0]=PHID-USER-47myrwgl5rbntutgxn2o"
-                                jsonModel.source += "/api/maniphest.search";
-                                jsonModel.load();
+                                maniphestPage.maniphestPageRequest();
                             }
                         }
                     }
