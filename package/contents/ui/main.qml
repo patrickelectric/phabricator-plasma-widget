@@ -31,10 +31,6 @@ Item {
     implicitWidth: width; implicitHeight: height
     Layout.minimumWidth: width; Layout.minimumHeight: height
 
-    Notification {
-        id: notification
-    }
-
     MessageDialog {
         id: dialog
         title: qsTr("Warning!")
@@ -49,6 +45,7 @@ Item {
         id: settings
         property string token
         property string phabricatorUrl
+
         Component.onCompleted: {
             Plasmoid.fullRepresentation = column;
             if (settings.token)
@@ -60,7 +57,7 @@ Item {
         id: jsonModel
         source: settings.phabricatorUrl
         requestMethod: "POST"
-        onHttpStatusChanged: if (jsonModel.httpStatus == 200) jsonModel.source = settings.phabricatorUrl;
+        onJsonChanged: jsonModel.source = settings.phabricatorUrl;
     }
 
     Column {
@@ -106,7 +103,7 @@ Item {
 
                 Connections {
                     target: jsonModel
-                    onHttpStatusChanged: {
+                    onJsonChanged: {
                         if (jsonModel.httpStatus == 200 && maniphestView.count == 0)
                             maniphestPage.maniphestData = jsonModel.json.result.data;
                     }
@@ -126,7 +123,7 @@ Item {
                     Layout.minimumWidth: 300
                     Layout.minimumHeight: 300
                     clip: true
-                    model: jsonModel.json.result.data
+                    model: maniphestPage.maniphestData
                     delegate: Rectangle {
                         color: "#fff"
                         width: maniphestView.width; height: 45
@@ -166,11 +163,11 @@ Item {
                     spacing: 10
 
                     Text {
-                        text: jsonModel.json.result.data[0].fields.name
+                        text: typeof jsonModel.json.result !== "undefined" ? jsonModel.json.result.data[0].fields.name : ""
                     }
 
                     Text {
-                        text: jsonModel.json.result.data[0].fields.description.raw
+                        text: typeof jsonModel.json.result !== "undefined" ? jsonModel.json.result.data[0].fields.description.raw : ""
                     }
                 }
             }
