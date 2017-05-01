@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2017 by Enoque Joseneas <enoquejoseneas@gmail.com>                            *
+ *   Copyright (C) 2017 by Enoque Joseneas <enoquejoseneas@gmail.com>      *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -24,16 +24,36 @@ import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.components 2.0 as PlasmaComponents
 import Qt.labs.settings 1.0
+import QtQuick.Dialogs 1.1
 
 Item {
     width: 400; height: 350
     implicitWidth: width; implicitHeight: height
     Layout.minimumWidth: width; Layout.minimumHeight: height
 
+    Notification {
+        id: notification
+    }
+
+    MessageDialog {
+        id: dialog
+        title: qsTr("Warning!")
+
+        function show(message) {
+            dialog.text = message;
+            dialog.open();
+        }
+    }
+
     Settings {
         id: settings
         property string token
         property string phabricatorUrl
+        Component.onCompleted: {
+            Plasmoid.fullRepresentation = column;
+            if (settings.token)
+                maniphestPage.maniphestPageRequest();
+        }
     }
 
     JSONListModel {
@@ -41,13 +61,6 @@ Item {
         source: settings.phabricatorUrl
         requestMethod: "POST"
         onHttpStatusChanged: if (jsonModel.httpStatus == 200) jsonModel.source = settings.phabricatorUrl;
-    }
-
-    Component.onCompleted: {
-        Plasmoid.fullRepresentation = column;
-        console.log("Settings: "+settings.token);
-        if (settings.token)
-            maniphestPage.maniphestPageRequest();
     }
 
     Column {
@@ -58,9 +71,7 @@ Item {
         
         PlasmaComponents.TabBar {
             id: tabBar
-            z: parent.z + 100
-            clip: true
-            width: parent.width
+            z: parent.z + 100; clip: true; width: parent.width
 
             PlasmaComponents.TabButton {
                 tab: maniphestPage
@@ -90,14 +101,25 @@ Item {
             PlasmaComponents.Page {
                 id: maniphestPage
                 anchors.fill: parent
-                
+
+                property var maniphestData
+
+                Connections {
+                    target: jsonModel
+                    onHttpStatusChanged: {
+                        if (jsonModel.httpStatus == 200 && maniphestView.count == 0)
+                            maniphestPage.maniphestData = jsonModel.json.result.data;
+                    }
+                }
+
                 function maniphestPageRequest() {
                     jsonModel.requestParams = "api.token="+settings.token+"&constraints[assigned][0]=PHID-USER-47myrwgl5rbntutgxn2o"
                     jsonModel.source += "/api/maniphest.search";
-                    jsonModel.load();                    
+                    jsonModel.load();
                 }
-                
+
                 ListView {
+                    id: maniphestView
                     anchors.fill: parent
                     implicitWidth: 300
                     implicitHeight: implicitWidth / 2
@@ -105,17 +127,25 @@ Item {
                     Layout.minimumHeight: 300
                     clip: true
                     model: jsonModel.json.result.data
-                    delegate: ItemDelegate {
-                        text: modelData.fields.name
+                    delegate: Rectangle {
+                        color: "#fff"
+                        width: maniphestView.width; height: 45
+                        PlasmaComponents.Label {
+                            id: textName
+                            text: modelData.fields.name
+                        }
+
                         MouseArea {
                             hoverEnabled: true
                             anchors.fill: parent
                             onEntered: cursorShape = Qt.PointingHandCursor
                             onClicked: { 
-                                previewPage.requestId = modelData.id
-                                previewPageButton.clicked()
+                                previewPage.requestId = modelData.id;
+                                previewPageButton.clicked();
                             }
                         }
+
+                        Rectangle { width: parent.width; height: 1; color: textName.color }
                     }
                 }
             }
@@ -123,17 +153,22 @@ Item {
             PlasmaComponents.Page {
                 id: previewPage
                 anchors.fill: parent
+
                 property int requestId: 0
+
                 onRequestIdChanged: {
-                    jsonModel.requestParams = "api.token="+settings.token+"&constraints[ids][0]="+requestId
+                    jsonModel.requestParams = "api.token=%1&constraints[ids][0]=%2".arg(settings.token).arg(requestId);
                     jsonModel.source += "/api/maniphest.search";
-                    jsonModel.load();                   
+                    jsonModel.load();
                 }
+
                 Column {
                     spacing: 10
+
                     Text {
                         text: jsonModel.json.result.data[0].fields.name
                     }
+
                     Text {
                         text: jsonModel.json.result.data[0].fields.description.raw
                     }
@@ -148,14 +183,6 @@ Item {
                     spacing: 4
                     width: parent.width; height: parent.height
                     anchors.horizontalCenter: parent.horizontalCenter
-
-                    Connections {
-                        target: jsonModel
-                        onJsonChanged: {
-                            if (jsonModel.httpStatus == 200)
-                                maniphestPage.maniphestPageRequest()
-                        }
-                    }
 
                     PlasmaComponents.Label {
                         text: qsTr("Enter the token:")
