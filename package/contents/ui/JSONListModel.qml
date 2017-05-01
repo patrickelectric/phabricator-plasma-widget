@@ -32,7 +32,8 @@ Item {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 rootItem.httpStatus = xhr.status
                 if (rootItem.httpStatus >= 200 && rootItem.httpStatus <= 299) {
-                    json = JSON.parse(xhr.responseText)
+                    var jsonTemp = JSON.parse(xhr.responseText)
+                    json = jsonTemp
                     rootItem.state = "ready"
                 }
                 else {
