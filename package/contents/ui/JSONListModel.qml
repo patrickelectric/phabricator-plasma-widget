@@ -1,17 +1,7 @@
-import QtQuick 2.7
+import QtQuick 2.8
 
 Item {
     id: rootItem
-
-    property string source
-    property string requestMethod: "GET"
-    property string requestParams
-    property string requestHeader: "application/x-www-form-urlencoded"
-    property string errorString: ""
-    property int httpStatus: 0
-
-    property var json
-
     state: "null"
     states: [
           State { name: "null" },
@@ -19,6 +9,14 @@ Item {
           State { name: "loading" },
           State { name: "error" }
     ]
+
+    property string source: ""
+    property string requestParams
+    property string errorString: ""
+    property string requestMethod: "GET"
+    property string requestHeader: "application/x-www-form-urlencoded"
+    property int httpStatus: 0
+    property var json
 
     function load() {
         var xhr = new XMLHttpRequest
@@ -35,8 +33,7 @@ Item {
                     var jsonTemp = JSON.parse(xhr.responseText)
                     json = jsonTemp
                     rootItem.state = "ready"
-                }
-                else {
+                } else {
                     rootItem.errorString = qsTr("The server returned error ") + xhr.status
                     rootItem.state = "error"
                 }
@@ -45,6 +42,6 @@ Item {
         rootItem.errorString = ""
         rootItem.state = "loading"
         json = undefined
-        xhr.send(requestParams); // requestParams ignored if requestMethod equals GET
+        xhr.send(requestParams); // requestParams ignored if requestMethod is GET
     }
 }
