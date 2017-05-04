@@ -2,7 +2,7 @@
 Name=Phabricator Widget
 Comment=A Plasma widget for visualizing Phabricator data
 
-Icon=applications-system
+Icon=/usr/share/plasma/plasmoids/org.kde.phabricator/contents/images/Phabricator.png
 Type=Service
 ServiceTypes=Plasma/Applet
 
