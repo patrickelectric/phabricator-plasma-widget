@@ -18,12 +18,7 @@
  ***************************************************************************/
 
 import QtQuick 2.1
-import QtQuick.Layouts 1.1
-import QtQuick.Dialogs 1.1
-import Qt.labs.settings 1.0
 import QtQuick.Controls 2.1
-import org.kde.plasma.plasmoid 2.0
-import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.components 2.0 as PlasmaComponents
 
 Rectangle {
@@ -38,7 +33,7 @@ Rectangle {
     BusyIndicator {
         height: width
         width: parent.width * 0.08
-        visible: jsonModel.state === "loading"
+        visible: parent.visible
         anchors { right: parent.right; margins: 15; verticalCenter: parent.verticalCenter }
     }
 } 
