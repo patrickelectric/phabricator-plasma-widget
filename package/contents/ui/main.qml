@@ -18,13 +18,13 @@
  ***************************************************************************/
 
 import QtQuick 2.1
-import QtQuick.Controls 2.0
 import QtQuick.Layouts 1.1
-import org.kde.plasma.core 2.0 as PlasmaCore
-import org.kde.plasma.plasmoid 2.0
-import org.kde.plasma.components 2.0 as PlasmaComponents
-import Qt.labs.settings 1.0
 import QtQuick.Dialogs 1.1
+import Qt.labs.settings 1.0
+import QtQuick.Controls 2.1
+import org.kde.plasma.plasmoid 2.0
+import org.kde.plasma.core 2.0 as PlasmaCore
+import org.kde.plasma.components 2.0 as PlasmaComponents
 
 Item {
     id: rootItem
@@ -32,28 +32,45 @@ Item {
     implicitWidth: width; implicitHeight: height
     Layout.minimumWidth: width; Layout.minimumHeight: height
 
+    function loadUserId() {
+        jsonModel.requestParams = "api.token=%1&emails[0]=%2".arg(settings.token).arg(settings.useremail);
+        jsonModel.source += "/api/user.query";
+        informationTab.show(qsTr("Loading your phabricator id..."));
+        jsonModel.load(function(response) {
+            if (response && jsonModel.httpStatus == 200) {
+                settings.userPhabricatorId = response.result[0].phid
+                informationTab.show(qsTr("Your id was success loaded!"))
+                maniphestPage.maniphestPageRequest()
+            }
+        });
+    }
+
     MessageDialog {
         id: dialog
         title: qsTr("Warning!")
 
-        function show(message) {
+        function show(message, dtitle) {
+            if (dtitle)
+                dialog.title = dtitle;
             dialog.text = message;
             dialog.open();
         }
     }
 
-    BusyIndicator {
-        visible: jsonModel.state == "loading"
-        anchors.centerIn: parent
+    // show system notification
+    Notification {
+        id: systemTrayNotification
     }
 
+    // timer to reload tasks
     Timer {
-        interval: 600000; running: true; repeat: true
+        interval: 300000; running: true; repeat: true
         onTriggered: maniphestPage.maniphestPageRequest()
     }
 
     Settings {
         id: settings
+        objectName: "Phabricator Widget"
         property string token
         property string phabricatorUrl
         property string useremail
@@ -61,7 +78,7 @@ Item {
 
         Component.onCompleted: {
             Plasmoid.fullRepresentation = column;
-            if (settings.token)
+            if (settings.token && settings.userPhabricatorId)
                 maniphestPage.maniphestPageRequest();
         }
     }
@@ -70,14 +87,13 @@ Item {
         id: jsonModel
         source: settings.phabricatorUrl
         requestMethod: "POST"
-        onJsonChanged: jsonModel.source = settings.phabricatorUrl;
+        // reset url after each request response
+        onHttpStatusChanged: jsonModel.source = settings.phabricatorUrl
     }
 
     Column {
         id: column
-        spacing: 0
-        width: parent.width
-        anchors.fill: parent
+        spacing: 2; width: parent.width; anchors.fill: parent
 
         PlasmaComponents.TabBar {
             id: tabBar
@@ -106,105 +122,170 @@ Item {
         PlasmaComponents.TabGroup {
             id: tabGroup
             clip: true
-            width: parent.width; height: parent.height - tabBar.height - anchors.topMargin
+            width: parent.width; height: parent.height - tabBar.height - informationTab.height
 
             PlasmaComponents.Page {
                 id: maniphestPage
-                anchors.fill: parent
+                clip: true; anchors.fill: parent
 
-                property var maniphestData
-
-                Connections {
-                    target: jsonModel
-                    onJsonChanged: {
-                        if (jsonModel.httpStatus == 200)
-                            maniphestPage.maniphestData = jsonModel.json.result.data;
-                    }
+                function getPriorityTaskColor(priority) {
+                    if (priority === "Unbreak Now!")
+                        return "#da49be";
+                    else if (priority === "Needs Triage")
+                        return "#8e44ad";
+                    else if (priority === "Hight")
+                        return "#c0392b";
+                    else if (priority === "Normal")
+                        return "#e67e22";
+                    else if (priority === "Low")
+                        return "#f1c40f";
+                    return "#3498db";
                 }
 
                 function maniphestPageRequest() {
-                    jsonModel.requestParams = "api.token=%1&constraints[assigned][0]=PHID-USER-47myrwgl5rbntutgxn2o".arg(settings.token)
-                    jsonModel.source += "/api/maniphest.search";
-                    jsonModel.load();
+                    jsonModel.requestParams = "api.token=%1&constraints[assigned][0]=%2".arg(settings.token).arg(settings.userPhabricatorId)
+                    jsonModel.source += "/api/maniphest.search"
+                    informationTab.show(qsTr("Loading maniphest opened tasks..."))
+                    jsonModel.load(function(response) {
+                        if (jsonModel.httpStatus == 200 && response.result) {
+                            if (maniphestView.count > 0 && maniphestView.count < response.result.data.length) {
+                                maniphestView.model.clear();
+                                systemTrayNotification.showMessage(qsTr("Phabricator Widget"), qsTr("New task(s) for you! Take a look in Phabricator widget!"))
+                            }
+                            maniphestView.model = response.result.data
+                        }
+                    });
                 }
 
                 ListView {
                     id: maniphestView
                     anchors.fill: parent
-                    implicitWidth: rootItem.width
-                    implicitHeight: implicitWidth / 2
-                    Layout.minimumWidth: rootItem.width
-                    Layout.minimumHeight: rootItem.height
-                    clip: true
-                    model: maniphestPage.maniphestData
+                    clip: true; spacing: 3
+                    ScrollIndicator.vertical: ScrollIndicator { }
                     delegate: Rectangle {
-                        color: "#fff"
-                        width: maniphestView.width; height: 40
-                        PlasmaComponents.Label {
-                            id: textName
-                            width: parent.width*0.90
-                            elide: Text.ElideRight
-                            text: modelData.fields.name
-                            anchors {
-                                left: parent.left
-                                leftMargin: 10
-                                verticalCenter: parent.verticalCenter
+                        clip: true; color: "transparent"
+                        width: parent.width; height: 50
+
+                        RowLayout {
+                            anchors.fill: parent
+
+                            // show phabricator priority task color
+                            Rectangle {
+                                anchors { left: parent.left; leftMargin: 0 }
+                                width: 4; height: parent.height
+                                color: maniphestPage.getPriorityTaskColor(modelData.fields.priority.name);
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+
+                            // show the task title
+                            Rectangle  {
+                                color: "transparent"
+                                width: parent.width * 0.80; height: parent.height
+
+                                PlasmaComponents.Label {
+                                    id: taskTitle
+                                    width: parent.width
+                                    elide: Text.ElideRight
+                                    text: modelData.fields.name
+                                    anchors {
+                                        left: parent.left
+                                        leftMargin: 10
+                                        verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                            }
+
+                            // show the task priority name
+                            PlasmaComponents.Label {
+                                color: taskTitle.color
+                                text: modelData.fields.priority.name
+                                height: parent.height
+                                font.pointSize: 7; opacity: 0.7
+                                anchors { right: parent.right; rightMargin: 5; top: parent.top; topMargin: 5 }
+                            }
+
+                            // show the task created datetime
+                            PlasmaComponents.Label {
+                                color: taskTitle.color
+                                text: Qt.formatDateTime(new Date(modelData.fields.dateCreated*1000))
+                                font.pointSize: 7; opacity: 0.7
+                                anchors { right: parent.right; rightMargin: 5; bottom: parent.bottom; bottomMargin: 5 }
                             }
                         }
 
+                        // add a click support to open task details in previous tab
                         MouseArea {
                             hoverEnabled: true
                             anchors.fill: parent
-                            onEntered: cursorShape = Qt.PointingHandCursor
-                            onClicked: { 
+                            onExited: parent.opacity = 1.0
+                            onEntered: {
+                                parent.opacity = 0.8
+                                cursorShape = Qt.PointingHandCursor
+                            }
+                            onClicked: {
                                 previewPage.requestId = modelData.id;
                                 previewPageButton.clicked();
                             }
                         }
 
-                        Rectangle { width: parent.width; height: 1; color: textName.color }
+                        // Add a divider line to list items
+                        Rectangle { width: parent.width; height: 1; color: taskTitle.color; opacity: 0.2 }
                     }
                 }
             }
 
             PlasmaComponents.Page {
                 id: previewPage
-                anchors.fill: parent
+                clip: true; anchors.fill: parent
 
                 property int requestId: 0
+                property var previewObject: {
+                    "fields": {"name": ""},
+                    "description": {"raw": ""}
+                }
 
                 onRequestIdChanged: {
-                    jsonModel.requestParams = "api.token=%1&constraints[ids][0]=%2".arg(settings.token).arg(requestId);
-                    jsonModel.source += "/api/maniphest.search";
-                    jsonModel.load();
+                    jsonModel.requestParams = "api.token=%1&constraints[ids][0]=%2".arg(settings.token).arg(requestId)
+                    jsonModel.source += "/api/maniphest.search"
+                    informationTab.show(qsTr("Loading detail for task %1".arg(requestId)))
+                    jsonModel.load(function(response) {
+                        if (jsonModel.httpStatus == 200 && response.result && response.result.data.length)
+                            previewPage.previewObject = response.result.data[0]
+                    });
                 }
 
                 Column {
+                    clip: true
                     spacing: 10
+                    width: parent.width * 0.90
 
-                    Text {
-                        text: typeof jsonModel.json.result !== "undefined" ? jsonModel.json.result.data[0].fields.name : ""
+                    PlasmaComponents.Label {
+                        width: parent.width
+                        elide: Text.ElideRight
+                        text: previewPage.previewObject.fields.name
                     }
 
-                    Text {
-                        text: typeof jsonModel.json.result !== "undefined" ? jsonModel.json.result.data[0].fields.description.raw : ""
+                    PlasmaComponents.Label {
+                        width: parent.width
+                        elide: Text.ElideRight
+                        text: previewPage.previewObject.description.raw
                     }
                 }
             }
 
             PlasmaComponents.Page {
                 id: settingsPage
-                anchors.fill: parent
+                clip: true; anchors.fill: parent
 
                 Flickable {
                     anchors.fill: parent
-                    contentHeight: formColumn.height
+                    width: parent.width; height: rootItem.height
+                    contentHeight: Math.max(formColumn.contentHeight*1.25, height)
                     ScrollBar.vertical: ScrollBar { }
-                    
+
                     ColumnLayout {
                         id: formColumn
-                        spacing: 10
-                        anchors.fill: parent
+                        spacing: 10; anchors.fill: parent
 
                         PlasmaComponents.Label {
                             text: qsTr("Enter you phabricator email:")
@@ -218,7 +299,7 @@ Item {
                         }
 
                         PlasmaComponents.Label {
-                            text: qsTr("Enter the token:")
+                            text: qsTr("Enter the phabricator conduit token:")
                             anchors {left: parent.left; leftMargin: 15; bottom: tokenField.top; bottomMargin: 5 }
                         }
 
@@ -229,7 +310,7 @@ Item {
                         }
 
                         PlasmaComponents.Label {
-                            text: qsTr("Enter the Phabricator URL:")
+                            text: qsTr("Enter the phabricator url:")
                             anchors {left: parent.left; leftMargin: 15; bottom: phabricatorUrlField.top; bottomMargin: 5 }
                         }
 
@@ -239,23 +320,37 @@ Item {
                             anchors { left: parent.left; right: parent.right; margins: 15 }
                         }
 
+                        PlasmaComponents.Label {
+                            id: phabricatorUserId
+                            visible: settings.userPhabricatorId.length > 0
+                            text: qsTr("Your phabricator ID is ") + settings.userPhabricatorId
+                            anchors.horizontalCenter: parent.horizontalCenter
+                        }
+
                         PlasmaComponents.Button {
                             id: button
                             text: qsTr("Submit")
                             anchors.horizontalCenter: parent.horizontalCenter
                             onClicked: {
-                                if (tokenField.text && phabricatorUrlField.text) {
+                                if (useremailField.text && tokenField.text && phabricatorUrlField.text) {
                                     settings.token = tokenField.text;
-                                    settings.phabricatorUrl = phabricatorUrlField.text;
                                     settings.useremail = useremailField.text;
-                                    maniphestPage.maniphestPageRequest();
+                                    settings.phabricatorUrl = phabricatorUrlField.text;
+                                    loadUserId();
+                                } else {
+                                    dialog.show(qsTr("All fields needs to be set!"));
                                 }
                             }
                         }
+
+                        Item { width: parent.width; height: 20 }
                     }
                 }
-
             }
+        }
+
+        InformationTab {
+            id: informationTab
         }
     }
 }
