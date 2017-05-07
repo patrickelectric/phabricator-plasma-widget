@@ -24,7 +24,7 @@ import org.kde.plasma.components 2.0 as PlasmaComponents
 
 Item {
     id: rootItem
-    width: parent.width; height: 48
+    width: parent.width; height: rootItem.opacity == 1 ? 25 : 0
 
     OpacityAnimator {
         target: rootItem
@@ -102,7 +102,7 @@ Item {
             }
 
             BusyIndicator {
-                implicitHeight: rootItem.height * 0.75; visible: rootItem.opacity = 1.0
+                implicitHeight: rootItem.height * 0.75; visible: rootItem.opacity == 1
                 anchors { right: parent.right; margins: 15; verticalCenter: parent.verticalCenter }
             }
         }
