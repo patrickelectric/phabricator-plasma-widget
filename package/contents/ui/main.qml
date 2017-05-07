@@ -70,7 +70,7 @@ Item {
 
     // timer to reload tasks
     Timer {
-        interval: 100000; running: true; repeat: true
+        interval: 300000; running: true; repeat: true
         onTriggered: maniphestPage.maniphestPageRequest()
     }
 
