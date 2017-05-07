@@ -28,7 +28,7 @@ import org.kde.plasma.components 2.0 as PlasmaComponents
 
 Item {
     id: rootItem
-    width: 400; height: 350
+    width: 450; height: 350
     implicitWidth: width; implicitHeight: height
     Layout.minimumWidth: width; Layout.minimumHeight: height
 
@@ -57,6 +57,12 @@ Item {
         }
     }
 
+    Image {
+        id: notificationIcon
+        source: "../images/Phabricator.png"
+        asynchronous: true; anchors.fill: parent; opacity: 0.1
+    }
+
     // show system notification
     Notification {
         id: systemTrayNotification
@@ -64,7 +70,7 @@ Item {
 
     // timer to reload tasks
     Timer {
-        interval: 300000; running: true; repeat: true
+        interval: 100000; running: true; repeat: true
         onTriggered: maniphestPage.maniphestPageRequest()
     }
 
@@ -148,8 +154,9 @@ Item {
                     informationTab.show(qsTr("Loading maniphest opened tasks..."))
                     jsonModel.load(function(response) {
                         if (jsonModel.httpStatus == 200 && response.result) {
-                            if (maniphestView.count > 0 && maniphestView.count < response.result.data.length) {
-                                maniphestView.model.clear();
+                            if (maniphestView.count > 0 && maniphestView.count !== response.result.data.length) {
+                                var fixBind = [];
+                                maniphestView.model = fixBind;
                                 systemTrayNotification.showMessage(qsTr("Phabricator Widget"), qsTr("New task(s) for you! Take a look in Phabricator widget!"))
                             }
                             maniphestView.model = response.result.data
@@ -160,21 +167,20 @@ Item {
                 ListView {
                     id: maniphestView
                     anchors.fill: parent
-                    clip: true; spacing: 3
+                    clip: true; spacing: 0
                     ScrollIndicator.vertical: ScrollIndicator { }
                     delegate: Rectangle {
                         clip: true; color: "transparent"
                         width: parent.width; height: 50
 
                         RowLayout {
-                            anchors.fill: parent
+                            anchors { fill: parent; verticalCenter: parent.verticalCenter }
 
                             // show phabricator priority task color
                             Rectangle {
-                                anchors { left: parent.left; leftMargin: 0 }
-                                width: 4; height: parent.height
+                                width: 4; height: parent.height-5
                                 color: maniphestPage.getPriorityTaskColor(modelData.fields.priority.name);
-                                anchors.verticalCenter: parent.verticalCenter
+                                anchors { left: parent.left; leftMargin: 0; verticalCenter: parent.verticalCenter }
                             }
 
                             // show the task title
@@ -201,7 +207,7 @@ Item {
                                 text: modelData.fields.priority.name
                                 height: parent.height
                                 font.pointSize: 7; opacity: 0.7
-                                anchors { right: parent.right; rightMargin: 5; top: parent.top; topMargin: 5 }
+                                anchors { right: parent.right; rightMargin: 5; top: parent.top; topMargin: 3 }
                             }
 
                             // show the task created datetime
@@ -209,7 +215,7 @@ Item {
                                 color: taskTitle.color
                                 text: Qt.formatDateTime(new Date(modelData.fields.dateCreated*1000))
                                 font.pointSize: 7; opacity: 0.7
-                                anchors { right: parent.right; rightMargin: 5; bottom: parent.bottom; bottomMargin: 5 }
+                                anchors { right: parent.right; rightMargin: 5; bottom: parent.bottom; bottomMargin: 3 }
                             }
                         }
 
@@ -229,7 +235,7 @@ Item {
                         }
 
                         // Add a divider line to list items
-                        Rectangle { width: parent.width; height: 1; color: taskTitle.color; opacity: 0.2 }
+                        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: taskTitle.color; opacity: 0.2 }
                     }
                 }
             }
