@@ -32,14 +32,16 @@ Item {
     implicitWidth: width; implicitHeight: height
     Layout.minimumWidth: width; Layout.minimumHeight: height
 
+    // to request tasks assigned to user, we needs the user id
+    // this function load the user id using the user email, phabricator token and phabricator url
     function loadUserId() {
         jsonModel.requestParams = "api.token=%1&emails[0]=%2".arg(settings.token).arg(settings.useremail);
         jsonModel.source += "/api/user.query";
-        informationTab.show(qsTr("Loading your phabricator id..."));
+        messageBar.show(qsTr("Loading your phabricator id..."));
         jsonModel.load(function(response) {
             if (response && jsonModel.httpStatus == 200) {
                 settings.userPhabricatorId = response.result[0].phid
-                informationTab.show(qsTr("Your id was success loaded!"))
+                messageBar.show(qsTr("Your id was success loaded!"))
                 maniphestPage.maniphestPageRequest()
             }
         });
@@ -57,6 +59,7 @@ Item {
         }
     }
 
+    // show phabricator logo in widget background
     Image {
         id: notificationIcon
         source: "../images/Phabricator.png"
@@ -74,6 +77,7 @@ Item {
         onTriggered: maniphestPage.maniphestPageRequest()
     }
 
+    // the storage of widget data (token, user id and phabricator url)
     Settings {
         id: settings
         objectName: "Phabricator Widget"
@@ -89,12 +93,19 @@ Item {
         }
     }
 
+    // the request http object
     JSONListModel {
         id: jsonModel
         source: settings.phabricatorUrl
         requestMethod: "POST"
         // reset url after each request response
-        onHttpStatusChanged: jsonModel.source = settings.phabricatorUrl
+        onStateChanged: if (state === "ready" || state === "error") jsonModel.source = settings.phabricatorUrl
+    }
+
+    // show in widget bottom dynamically messages
+    MessageBar {
+        id: messageBar
+        z: tabGroup.z + 10
     }
 
     Column {
@@ -112,13 +123,6 @@ Item {
             }
 
             PlasmaComponents.TabButton {
-                id: previewPageButton
-                tab: previewPage
-                text: qsTr("Preview")
-                clip: true
-            }
-
-            PlasmaComponents.TabButton {
                 tab: settingsPage
                 text: qsTr("Settings")
                 clip: true
@@ -128,7 +132,7 @@ Item {
         PlasmaComponents.TabGroup {
             id: tabGroup
             clip: true
-            width: parent.width; height: parent.height - tabBar.height - informationTab.height
+            width: parent.width; height: parent.height - tabBar.height
 
             PlasmaComponents.Page {
                 id: maniphestPage
@@ -151,7 +155,7 @@ Item {
                 function maniphestPageRequest() {
                     jsonModel.requestParams = "api.token=%1&constraints[assigned][0]=%2".arg(settings.token).arg(settings.userPhabricatorId)
                     jsonModel.source += "/api/maniphest.search"
-                    informationTab.show(qsTr("Loading maniphest opened tasks..."))
+                    messageBar.show(qsTr("Loading maniphest opened tasks..."))
                     jsonModel.load(function(response) {
                         if (jsonModel.httpStatus == 200 && response.result) {
                             if (maniphestView.count > 0 && maniphestView.count !== response.result.data.length) {
@@ -164,9 +168,66 @@ Item {
                     });
                 }
 
+                Rectangle {
+                    id: preview
+                    clip: true; anchors.fill: parent
+                    color: "transparent"; visible: false
+
+                    property int requestId: 0
+                    property var previewObject: {
+                        "fields": {"name": ""},
+                        "description": {"raw": ""}
+                    }
+
+                    onRequestIdChanged: {
+                        messageBar.show(qsTr("Loading details for task %1".arg(requestId)))
+                        jsonModel.source += "/api/maniphest.search"
+                        jsonModel.requestParams = "api.token=%1&constraints[ids][0]=%2".arg(settings.token).arg(requestId)
+                        jsonModel.load(function(response) {
+                            if (jsonModel.httpStatus == 200 && response.result && response.result.data.length) {
+                                preview.previewObject = response.result.data[0]
+                                preview.visible = true
+                            }
+                        })
+                    }
+
+                    Image {
+                        width: 24; height: width
+                        asynchronous: true; clip: true
+                        source: "../images/arrow_back.svg"
+                        anchors { left: parent.left; leftMargin: 5; top: parent.top; topMargin: 5 }
+
+                        MouseArea {
+                            onClicked: preview.visible = false
+                            anchors.fill: parent; hoverEnabled: true
+                            onEntered: cursorShape = Qt.PointingHandCursor
+                        }
+                    }
+
+                    Column {
+                        clip: true
+                        spacing: 20
+                        width: parent.width * 0.90
+                        anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 30 }
+
+                        PlasmaComponents.Label {
+                            width: parent.width
+                            elide: Text.ElideRight
+                            text: preview.previewObject.fields.name
+                        }
+
+                        PlasmaComponents.Label {
+                            width: parent.width
+                            elide: Text.ElideRight
+                            text: typeof preview.previewObject.description != "undefined" ? preview.previewObject.description.raw : ""
+                        }
+                    }
+                }
+
                 ListView {
                     id: maniphestView
                     anchors.fill: parent
+                    visible: !preview.visible
                     clip: true; spacing: 0
                     ScrollIndicator.vertical: ScrollIndicator { }
                     delegate: Rectangle {
@@ -224,13 +285,10 @@ Item {
                             hoverEnabled: true
                             anchors.fill: parent
                             onExited: parent.opacity = 1.0
+                            onClicked: preview.requestId = modelData.id;
                             onEntered: {
                                 parent.opacity = 0.8
                                 cursorShape = Qt.PointingHandCursor
-                            }
-                            onClicked: {
-                                previewPage.requestId = modelData.id;
-                                previewPageButton.clicked();
                             }
                         }
 
@@ -241,52 +299,12 @@ Item {
             }
 
             PlasmaComponents.Page {
-                id: previewPage
-                clip: true; anchors.fill: parent
-
-                property int requestId: 0
-                property var previewObject: {
-                    "fields": {"name": ""},
-                    "description": {"raw": ""}
-                }
-
-                onRequestIdChanged: {
-                    jsonModel.requestParams = "api.token=%1&constraints[ids][0]=%2".arg(settings.token).arg(requestId)
-                    jsonModel.source += "/api/maniphest.search"
-                    informationTab.show(qsTr("Loading detail for task %1".arg(requestId)))
-                    jsonModel.load(function(response) {
-                        if (jsonModel.httpStatus == 200 && response.result && response.result.data.length)
-                            previewPage.previewObject = response.result.data[0]
-                    });
-                }
-
-                Column {
-                    clip: true
-                    spacing: 10
-                    width: parent.width * 0.90
-
-                    PlasmaComponents.Label {
-                        width: parent.width
-                        elide: Text.ElideRight
-                        text: previewPage.previewObject.fields.name
-                    }
-
-                    PlasmaComponents.Label {
-                        width: parent.width
-                        elide: Text.ElideRight
-                        text: previewPage.previewObject.description.raw
-                    }
-                }
-            }
-
-            PlasmaComponents.Page {
                 id: settingsPage
                 clip: true; anchors.fill: parent
 
                 Flickable {
-                    anchors.fill: parent
-                    width: parent.width; height: rootItem.height
-                    contentHeight: Math.max(formColumn.contentHeight*1.25, height)
+                    anchors.fill: parent; height: rootItem.height
+                    contentHeight: formColumn.contentHeight
                     ScrollBar.vertical: ScrollBar { }
 
                     ColumnLayout {
@@ -349,14 +367,10 @@ Item {
                             }
                         }
 
-                        Item { width: parent.width; height: 20 }
+                        Item { width: parent.width; height: 25 }
                     }
                 }
             }
-        }
-
-        InformationTab {
-            id: informationTab
         }
     }
 }
