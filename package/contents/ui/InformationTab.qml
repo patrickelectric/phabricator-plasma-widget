@@ -22,19 +22,21 @@ import QtQuick.Layouts 1.3
 import QtQuick.Controls 2.1
 import org.kde.plasma.components 2.0 as PlasmaComponents
 
-Item {
+Rectangle {
     id: rootItem
-    width: parent.width; height: rootItem.opacity == 1 ? 25 : 0
+    color: "#323232"
+    anchors { bottom: parent.bottom; bottomMargin: -2 }
+    width: parent.width; height: rootItem.opacity == 1 ? 30 : 0
 
     OpacityAnimator {
         target: rootItem
-        from: 0; to: 1; duration: 300; running: isOpened
+        from: 0; to: 1; duration: 350; running: isOpened
     }
 
     OpacityAnimator {
         id: hideOpacityAnimator
         target: rootItem
-        from: 1; to: 0; duration: 300; running: false
+        from: 1; to: 0; duration: 350; running: false
     }
 
     property bool isOpened: false
@@ -88,8 +90,9 @@ Item {
             width: parent.width; height: parent.height
             anchors { left: parent.left; leftMargin: 15; right: parent.right; verticalCenter: parent.verticalCenter }
 
-            PlasmaComponents.Label {
+            Label {
                 id: message
+                color: "#fff"; opacity: 0.9
                 width: parent.width * 0.70
                 verticalAlignment: Text.AlignVCenter
                 horizontalAlignment: Text.AlignLeft
@@ -101,9 +104,17 @@ Item {
                 }
             }
 
-            BusyIndicator {
-                implicitHeight: rootItem.height * 0.75; visible: rootItem.opacity == 1
+            Image {
+                visible: rootItem.opacity == 1
+                asynchronous: true; clip: true
+                source: "../images/settings.svg"
+                sourceSize { width: 20; height: 20 }
                 anchors { right: parent.right; margins: 15; verticalCenter: parent.verticalCenter }
+
+                NumberAnimation on rotation {
+                    from: 0; to: 360; running: rootItem.visible
+                    duration: 1100; loops: Animation.Infinite
+                }
             }
         }
     }
