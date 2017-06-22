@@ -22,6 +22,7 @@ import QtQuick.Layouts 1.1
 import QtQuick.Dialogs 1.1
 import Qt.labs.settings 1.0
 import QtQuick.Controls 2.1
+import QtGraphicalEffects 1.0
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.components 2.0 as PlasmaComponents
@@ -201,6 +202,13 @@ Item {
                             onClicked: preview.visible = false
                             anchors.fill: parent; hoverEnabled: true
                             onEntered: cursorShape = Qt.PointingHandCursor
+                        }
+
+                        ColorOverlay {
+                            source: parent
+                            color: "#fff"
+                            cached: true
+                            anchors.fill: parent
                         }
                     }
 
