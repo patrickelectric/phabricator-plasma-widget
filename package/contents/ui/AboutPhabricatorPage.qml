@@ -25,14 +25,13 @@ import org.kde.plasma.components 2.0 as PlasmaComponents
 PlasmaComponents.Page {
     clip: true; anchors.fill: parent
 
-    Component.onCompleted: console.log("About Phabricator page loaded!")
-
     Item {
         id: rectangle
-        width: parent.width* 0.80; height: label.implicitHeight
+        width: parent.width*0.80; height: label.implicitHeight
         anchors.centerIn: parent
 
         PlasmaComponents.Label {
+            id: label
             width: parent.width
             anchors.centerIn: parent
             horizontalAlignment: Text.AlignJustify
