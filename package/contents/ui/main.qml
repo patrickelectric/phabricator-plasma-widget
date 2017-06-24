@@ -18,48 +18,44 @@
  ***************************************************************************/
 
 import QtQuick 2.1
-import QtQuick.Layouts 1.1
-import QtQuick.Dialogs 1.1
 import Qt.labs.settings 1.0
+import QtGraphicalEffects 1.0
 import QtQuick.Controls 2.1
+import QtQuick.Layouts 1.1
 import org.kde.plasma.plasmoid 2.0
 import org.kde.plasma.core 2.0 as PlasmaCore
 import org.kde.plasma.components 2.0 as PlasmaComponents
 
 Item {
     id: rootItem
+    Plasmoid.title: qsTr("Phabricator Widget")
     width: 450; height: 350
     implicitWidth: width; implicitHeight: height
     Layout.minimumWidth: width; Layout.minimumHeight: height
 
-    // to request tasks assigned to user, we needs the user id
-    // this function load the user id using the user email, phabricator token and phabricator url
-    function loadUserId() {
-        jsonModel.requestParams = "api.token=%1&emails[0]=%2".arg(settings.token).arg(settings.useremail);
-        jsonModel.source += "/api/user.query";
-        messageBar.show(qsTr("Loading your phabricator id..."));
-        jsonModel.load(function(response) {
-            if (response && jsonModel.httpStatus == 200) {
-                settings.userPhabricatorId = response.result[0].phid
-                messageBar.show(qsTr("Your id was success loaded!"))
-                maniphestPage.maniphestPageRequest()
-            }
-        });
-    }
 
-    // the storage of widget data (token, user id and phabricator url)
+    // the widget persistence data (token, user id and phabricator url)
     Settings {
         id: settings
         objectName: "Phabricator Widget"
-        property string token
+
         property string phabricatorUrl
+        property string projectId
+        property var projectList
+        property string token
         property string useremail
         property string userPhabricatorId
 
+        signal ready()
+
         Component.onCompleted: {
-            Plasmoid.fullRepresentation = column;
-            if (settings.token && settings.userPhabricatorId)
-                maniphestPage.maniphestPageRequest();
+            Plasmoid.fullRepresentation = column
+            if (!token || !useremail || !phabricatorUrl) {
+                tabGroup.currentTab = settingsPage;
+                tabBar.currentTab = settingsPageButton;
+            } else {
+                ready()
+            }
         }
     }
 
@@ -75,12 +71,6 @@ Item {
     // show system notification for new events
     Notification {
         id: systemTrayNotification
-    }
-
-    // show in widget bottom dynamically messages
-    MessageBar {
-        id: messageBar
-        z: tabGroup.z + 10
     }
 
     Column {
@@ -101,6 +91,7 @@ Item {
                 }
 
                 PlasmaComponents.TabButton {
+                    id: settingsPageButton
                     tab: settingsPage
                     text: qsTr("Settings")
                     clip: true
@@ -131,5 +122,11 @@ Item {
                 id: aboutPhabricatorPage
             }
         }
+    }
+
+    PlasmaComponents.BusyIndicator {
+        width: 32; height: width
+        visible: jsonModel.state === "loading"
+        anchors { bottom: parent.bottom; right: parent.right; margins: 5 }
     }
 }
