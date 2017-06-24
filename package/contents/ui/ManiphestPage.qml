@@ -26,7 +26,7 @@ import org.kde.plasma.components 2.0 as PlasmaComponents
 PlasmaComponents.Page {
     clip: true; anchors.fill: parent
 
-    Component.onCompleted: console.log("Maniphest page loaded!")
+    property bool requestInProgress: false
 
     function getPriorityTaskColor(priority) {
         if (priority === "Unbreak Now!")
@@ -43,29 +43,40 @@ PlasmaComponents.Page {
     }
 
     function maniphestPageRequest() {
-        jsonModel.requestParams = "api.token=%1&constraints[assigned][0]=%2".arg(settings.token).arg(settings.userPhabricatorId)
-        jsonModel.source += "/api/maniphest.search"
-        messageBar.show(qsTr("Loading maniphest opened tasks..."))
+        if (requestInProgress || !settings.token.length || !settings.userPhabricatorId.length)
+            return;
+        requestInProgress = true;
+        var params = "api.token=%1".arg(settings.token);
+        if (settings.projectId)
+            params += "&constraints[projects][0]=%1".arg(settings.projectId);
+        else if (settings.userPhabricatorId)
+            params += "&constraints[assigned][0]=%1".arg(settings.userPhabricatorId);
+        jsonModel.requestParams = params;
+        jsonModel.source += "maniphest.search";
         jsonModel.load(function(response) {
+            requestInProgress = false;
             if (jsonModel.httpStatus == 200 && response.result) {
                 if (maniphestView.count > 0 && maniphestView.count !== response.result.data.length) {
                     var fixBind = [];
                     maniphestView.model = fixBind;
-                    systemTrayNotification.showMessage(qsTr("Phabricator Widget"), qsTr("New task(s) for you! Take a look in Phabricator widget!"))
+                    systemTrayNotification.showMessage(qsTr("Phabricator Widget"), qsTr("New task(s) for you! Take a look in Phabricator widget!"));
                 }
-                maniphestView.model = response.result.data
+                maniphestView.model = response.result.data;
             }
         });
     }
 
-    function loadProjects() {
-        
-    }
-
     // timer to reload tasks
     Timer {
-        interval: 300000; running: true; repeat: true
+        id: updateCheckTimer
+        interval: 500000; running: true; repeat: true
         onTriggered: maniphestPageRequest()
+    }
+
+    Connections {
+        target: settings
+        onReady: maniphestPageRequest()
+        onProjectIdChanged: maniphestPageRequest()
     }
 
     Rectangle {
@@ -80,13 +91,14 @@ PlasmaComponents.Page {
         }
 
         onRequestIdChanged: {
-            messageBar.show(qsTr("Loading details for task %1".arg(requestId)))
-            jsonModel.source += "/api/maniphest.search"
-            jsonModel.requestParams = "api.token=%1&constraints[ids][0]=%2".arg(settings.token).arg(requestId)
+            if (!requestId)
+                return;
+            jsonModel.source += "maniphest.search";
+            jsonModel.requestParams = "api.token=%1&constraints[ids][0]=%2".arg(settings.token).arg(requestId);
             jsonModel.load(function(response) {
                 if (jsonModel.httpStatus == 200 && response.result && response.result.data.length) {
-                    preview.previewObject = response.result.data[0]
-                    preview.visible = true
+                    preview.previewObject = response.result.data[0];
+                    preview.visible = true;
                 }
             })
         }
