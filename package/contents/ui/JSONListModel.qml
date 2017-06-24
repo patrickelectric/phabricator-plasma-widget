@@ -37,6 +37,20 @@ Item {
     property int httpStatus: 0
     property var json
 
+    function serialize(obj) {
+        var pairs = [];
+        for (var prop in obj) {
+            if (!obj.hasOwnProperty(prop))
+                continue;
+            if (typeof obj[prop] === '[object Object]') {
+                pairs.push(serialiseObject(obj[prop]));
+                continue;
+            }
+            pairs.push(prop + '=' + obj[prop]);
+        }
+        return pairs.join('&');
+    }
+
     function load(callback) {
         var xhr = new XMLHttpRequest
         xhr.open(requestMethod, (requestMethod === "GET") ? source + "?" + requestParams : source);
@@ -48,8 +62,8 @@ Item {
         xhr.onreadystatechange = function() {
             if (xhr.readyState === XMLHttpRequest.DONE) {
                 rootItem.httpStatus = xhr.status
+                rootItem.state = "ready"
                 if (rootItem.httpStatus >= 200 && rootItem.httpStatus <= 299) {
-                    rootItem.state = "ready"
                     if (callback)
                         callback(xhr.responseText.length ? JSON.parse(xhr.responseText) : {})
                     else
